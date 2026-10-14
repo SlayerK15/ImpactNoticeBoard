@@ -41,6 +41,7 @@ type Task = {
 
 const TODAY_LABEL = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date())
 const MEMBER_COLORS = ['coral', 'blue', 'green', 'yellow', 'lilac']
+const INITIAL_RESET_TOKEN = typeof window === 'undefined' ? '' : new URL(window.location.href).searchParams.get('token') ?? ''
 
 function getInitials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || 'TM'
@@ -253,7 +254,7 @@ export default function NeonApp() {
     <div className="app-shell">
       <aside className="sidebar">
         <a className="brand" href="#board" aria-label="Impact home"><span className="brand-mark"><Sparkles size={19} strokeWidth={2.2} /></span><span>impact<span className="brand-period">.</span></span></a>
-        <div className="workspace-switcher"><span className="workspace-glyph">N</span><span className="workspace-copy"><strong>Northstar Studio</strong><small>Team workspace</small></span><ChevronDown size={15} /></div>
+        <div className="workspace-switcher"><span className="workspace-glyph">TI</span><span className="workspace-copy"><strong>TEAM IMPACT</strong><small>Team workspace</small></span><ChevronDown size={15} /></div>
         <div className="side-label">WORKSPACE</div>
         <nav className="side-nav" aria-label="Workspace views">
           <button className={`nav-item ${view === 'all' ? 'is-active' : ''}`} onClick={() => setView('all')} type="button"><LayoutGrid size={17} /><span>Team board</span><span className="nav-count">{openTasks.length}</span></button>
@@ -270,7 +271,7 @@ export default function NeonApp() {
 
       <main className="main-area" id="board">
         <header className="topbar">
-          <div className="breadcrumbs"><span>Northstar Studio</span><span className="crumb-slash">/</span><strong>{title}</strong></div>
+          <div className="breadcrumbs"><span>TEAM IMPACT</span><span className="crumb-slash">/</span><strong>{title}</strong></div>
           <div className="topbar-actions"><span className="today-label"><Clock3 size={14} />{TODAY_LABEL}</span><span className={`avatar avatar-${MEMBER_COLORS[getMemberColor(user.id)]}`} title={user.name}>{getInitials(user.name)}</span></div>
         </header>
 
@@ -317,6 +318,9 @@ export default function NeonApp() {
 
 function SignInScreen({ error, onError, onSignedIn }: { error: string; onError: (message: string) => void; onSignedIn: (user: User) => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [screen, setScreen] = useState<'sign-in' | 'forgot-password' | 'reset-password'>(INITIAL_RESET_TOKEN ? 'reset-password' : 'sign-in')
+  const [resetToken, setResetToken] = useState(INITIAL_RESET_TOKEN)
+  const [statusMessage, setStatusMessage] = useState('')
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -338,5 +342,53 @@ function SignInScreen({ error, onError, onSignedIn }: { error: string; onError: 
     }
   }
 
-  return <div className="connection-screen"><section className="connection-card sign-in-card"><a className="brand" href="#board" aria-label="Impact home"><span className="brand-mark"><Sparkles size={19} /></span><span>impact<span className="brand-period">.</span></span></a><span className="modal-kicker">NORTHSTAR STUDIO</span><h1>Welcome back.</h1><p>Sign in with the account your team administrator created.</p>{error && <div className="error-banner" role="alert">{error}</div>}<form onSubmit={(event) => void signIn(event)}><label className="form-field"><span>Email</span><input name="email" type="email" autoComplete="username" required /></label><label className="form-field"><span>Password</span><input name="password" type="password" autoComplete="current-password" required /></label><button className="primary-button sign-in-submit" type="submit" disabled={isSubmitting}>{isSubmitting ? 'Signing in...' : 'Sign in'}</button></form><div className="sign-in-note"><span className="storage-dot" />Private team workspace</div></section></div>
+  async function requestPasswordReset(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!neonClient) return
+    setIsSubmitting(true)
+    onError('')
+    const formData = new FormData(event.currentTarget)
+    try {
+      const result = await neonClient.auth.requestPasswordReset({
+        email: String(formData.get('email')).trim(),
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (result.error) throw new Error(result.error.message)
+      setStatusMessage('If this account exists, a password-reset link is on its way. Check your inbox.')
+    } catch (resetError) {
+      onError(messageFromError(resetError))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function resetPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!neonClient) return
+    setIsSubmitting(true)
+    onError('')
+    const formData = new FormData(event.currentTarget)
+    const password = String(formData.get('password'))
+    if (password !== String(formData.get('confirmPassword'))) {
+      onError('The passwords do not match.')
+      setIsSubmitting(false)
+      return
+    }
+    try {
+      const result = await neonClient.auth.resetPassword({ newPassword: password, token: resetToken })
+      if (result.error) throw new Error(result.error.message)
+      window.history.replaceState(null, '', '/')
+      setResetToken('')
+      setScreen('sign-in')
+      setStatusMessage('Password set. You can now sign in.')
+    } catch (resetError) {
+      onError(messageFromError(resetError))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const heading = screen === 'reset-password' ? 'Set your password.' : screen === 'forgot-password' ? 'Reset your password.' : 'Welcome back.'
+
+  return <div className="connection-screen"><section className="connection-card sign-in-card"><a className="brand" href="#board" aria-label="Impact home"><span className="brand-mark"><Sparkles size={19} /></span><span>impact<span className="brand-period">.</span></span></a><span className="modal-kicker">TEAM IMPACT</span><h1>{heading}</h1><p>{screen === 'reset-password' ? 'Choose a new password for your team account.' : screen === 'forgot-password' ? 'We’ll email a secure reset link if this account exists.' : 'Sign in with the account your team administrator created.'}</p>{error && <div className="error-banner" role="alert">{error}</div>}{statusMessage && <div className="notice-banner" role="status">{statusMessage}</div>}{screen === 'sign-in' ? <form onSubmit={(event) => void signIn(event)}><label className="form-field"><span>Email</span><input name="email" type="email" autoComplete="username" required /></label><label className="form-field"><span>Password</span><input name="password" type="password" autoComplete="current-password" required /></label><button className="primary-button sign-in-submit" type="submit" disabled={isSubmitting}>{isSubmitting ? 'Signing in...' : 'Sign in'}</button><button className="auth-link-button" type="button" onClick={() => { onError(''); setStatusMessage(''); setScreen('forgot-password') }}>Forgot password?</button></form> : screen === 'forgot-password' ? <form onSubmit={(event) => void requestPasswordReset(event)}><label className="form-field"><span>Email</span><input name="email" type="email" autoComplete="username" required /></label><button className="primary-button sign-in-submit" type="submit" disabled={isSubmitting}>{isSubmitting ? 'Sending...' : 'Send reset link'}</button><button className="auth-link-button" type="button" onClick={() => { onError(''); setStatusMessage(''); setScreen('sign-in') }}>Back to sign in</button></form> : resetToken ? <form onSubmit={(event) => void resetPassword(event)}><label className="form-field"><span>New password</span><input name="password" type="password" autoComplete="new-password" minLength={12} required /></label><label className="form-field"><span>Confirm password</span><input name="confirmPassword" type="password" autoComplete="new-password" minLength={12} required /></label><button className="primary-button sign-in-submit" type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Set password'}</button></form> : <div className="error-banner" role="alert">This reset link is missing its token or has expired. Request a new one from the sign-in page.</div>}<div className="sign-in-note"><span className="storage-dot" />Private team workspace</div></section></div>
 }
