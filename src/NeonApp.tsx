@@ -135,6 +135,28 @@ export default function NeonApp() {
     return () => { active = false }
   }, [refreshKey, user])
 
+  useEffect(() => {
+    if (!isTaskFormOpen && !isMemberFormOpen) return
+    const previousBodyOverflow = document.body.style.overflow
+    const previousRootOverflow = document.documentElement.style.overflow
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsTaskFormOpen(false)
+        setIsMemberFormOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.body.style.overflow = previousBodyOverflow
+      document.documentElement.style.overflow = previousRootOverflow
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [isMemberFormOpen, isTaskFormOpen])
+
   if (!neonConfigured || !neonClient) {
     return (
       <div className="connection-screen">
@@ -309,9 +331,9 @@ export default function NeonApp() {
         </div>
       </main>
 
-      {isTaskFormOpen && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsTaskFormOpen(false) }}><section className="task-modal" role="dialog" aria-modal="true" aria-labelledby="task-modal-title"><div className="modal-heading"><div><span className="modal-kicker">TEAM BOARD</span><h2 id="task-modal-title">Add a task</h2></div><button className="icon-button" type="button" onClick={() => setIsTaskFormOpen(false)} aria-label="Close"><X size={19} /></button></div><form onSubmit={(event) => void createTask(event)}><label className="form-field"><span>Task name</span><input name="title" placeholder="What needs to get done?" required autoFocus maxLength={120} /></label><label className="form-field"><span>Project <small>Optional</small></span><input name="project" placeholder="e.g. Spring launch" maxLength={48} /></label><div className="form-grid"><label className="form-field"><span>Assignee</span><select name="assignee" defaultValue=""><option value="">Unassigned</option>{members.map((member) => <option value={member.id} key={member.id}>{member.display_name}</option>)}</select></label><label className="form-field"><span>Priority</span><select name="priority" defaultValue="Medium"><option>Low</option><option>Medium</option><option>High</option></select></label></div><label className="form-field"><span>Due date</span><input name="dueDate" type="date" /></label><div className="modal-actions"><button className="cancel-button" type="button" onClick={() => setIsTaskFormOpen(false)}>Cancel</button><button className="primary-button" type="submit"><Plus size={16} /> Create task</button></div></form></section></div>}
+      {isTaskFormOpen && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsTaskFormOpen(false) }}><section className="task-modal" role="dialog" aria-modal="true" aria-labelledby="task-modal-title" onKeyDown={(event) => { if (event.key === 'Escape') setIsTaskFormOpen(false) }}><div className="modal-heading"><div><span className="modal-kicker">TEAM BOARD</span><h2 id="task-modal-title">Add a task</h2></div><button className="icon-button" type="button" onClick={() => setIsTaskFormOpen(false)} aria-label="Close"><X size={19} /></button></div><form onSubmit={(event) => void createTask(event)}><label className="form-field"><span>Task name</span><input name="title" placeholder="What needs to get done?" required autoFocus maxLength={120} /></label><label className="form-field"><span>Project <small>Optional</small></span><input name="project" placeholder="e.g. Spring launch" maxLength={48} /></label><div className="form-grid"><label className="form-field"><span>Assignee</span><select name="assignee" defaultValue=""><option value="">Unassigned</option>{members.map((member) => <option value={member.id} key={member.id}>{member.display_name}</option>)}</select></label><label className="form-field"><span>Priority</span><select name="priority" defaultValue="Medium"><option>Low</option><option>Medium</option><option>High</option></select></label></div><label className="form-field"><span>Due date</span><input name="dueDate" type="date" /></label><div className="modal-actions"><button className="cancel-button" type="button" onClick={() => setIsTaskFormOpen(false)}>Cancel</button><button className="primary-button" type="submit"><Plus size={16} /> Create task</button></div></form></section></div>}
 
-      {isMemberFormOpen && userIsAdmin && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsMemberFormOpen(false) }}><section className="task-modal" role="dialog" aria-modal="true" aria-labelledby="member-modal-title"><div className="modal-heading"><div><span className="modal-kicker">ADMINISTRATION</span><h2 id="member-modal-title">Create teammate account</h2></div><button className="icon-button" type="button" onClick={() => setIsMemberFormOpen(false)} aria-label="Close"><X size={19} /></button></div><form onSubmit={(event) => void createMember(event)}><label className="form-field"><span>Full name</span><input name="name" placeholder="Name" required maxLength={100} /></label><label className="form-field"><span>Email</span><input name="email" type="email" placeholder="name@company.com" required /></label><label className="form-field"><span>Temporary password</span><input name="password" type="password" autoComplete="new-password" minLength={12} required /><small className="field-note">Use a unique temporary password and share it through a separate secure channel.</small></label><div className="modal-actions"><button className="cancel-button" type="button" onClick={() => setIsMemberFormOpen(false)}>Cancel</button><button className="primary-button" type="submit"><UserPlus size={16} /> Create account</button></div></form></section></div>}
+      {isMemberFormOpen && userIsAdmin && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsMemberFormOpen(false) }}><section className="task-modal" role="dialog" aria-modal="true" aria-labelledby="member-modal-title" onKeyDown={(event) => { if (event.key === 'Escape') setIsMemberFormOpen(false) }}><div className="modal-heading"><div><span className="modal-kicker">ADMINISTRATION</span><h2 id="member-modal-title">Create teammate account</h2></div><button className="icon-button" type="button" onClick={() => setIsMemberFormOpen(false)} aria-label="Close"><X size={19} /></button></div><form onSubmit={(event) => void createMember(event)}><label className="form-field"><span>Full name</span><input name="name" placeholder="Name" required maxLength={100} /></label><label className="form-field"><span>Email</span><input name="email" type="email" placeholder="name@company.com" required /></label><label className="form-field"><span>Temporary password</span><input name="password" type="password" autoComplete="new-password" minLength={12} required /><small className="field-note">Use a unique temporary password and share it through a separate secure channel.</small></label><div className="modal-actions"><button className="cancel-button" type="button" onClick={() => setIsMemberFormOpen(false)}>Cancel</button><button className="primary-button" type="submit"><UserPlus size={16} /> Create account</button></div></form></section></div>}
     </div>
   )
 }
